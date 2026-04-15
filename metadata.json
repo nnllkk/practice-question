@@ -1,0 +1,6 @@
+{
+  "name": "智能刷题助手",
+  "description": "一个支持Excel题库上传、随机抽题、实时答题及错题分析的刷题应用。",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
