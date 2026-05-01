@@ -8,12 +8,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BookOpen, Trophy, FileSpreadsheet, PlayCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { generateEntryKey, isValidMainlandChinaIdCard } from '@/src/lib/entry-gate';
 import { FileUpload } from './components/FileUpload';
 import { Quiz } from './components/Quiz';
 import { Results } from './components/Results';
 import { Question, QuizResult, AppState } from './types';
 
 const LAST_RESULT_KEY = 'quiz_last_result';
+type EntryGateStep = 'key' | 'id' | 'done';
 
 export default function App() {
   const [state, setState] = useState<AppState>('home');
@@ -21,6 +23,11 @@ export default function App() {
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
   const [lastResult, setLastResult] = useState<QuizResult | null>(null);
   const [currentResult, setCurrentResult] = useState<QuizResult | null>(null);
+  const [entryKey, setEntryKey] = useState('');
+  const [entryKeyInput, setEntryKeyInput] = useState('');
+  const [idCardInput, setIdCardInput] = useState('');
+  const [entryGateStep, setEntryGateStep] = useState<EntryGateStep>('key');
+  const [entryGateError, setEntryGateError] = useState('');
 
   // Load last result from localStorage
   useEffect(() => {
@@ -34,8 +41,40 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (state !== 'home') {
+      return;
+    }
+
+    setEntryKey(generateEntryKey());
+    setEntryKeyInput('');
+    setIdCardInput('');
+    setEntryGateError('');
+    setEntryGateStep('key');
+  }, [state]);
+
   const handleDataLoaded = (questions: Question[]) => {
     setAllQuestions(questions);
+  };
+
+  const handleEntryKeySubmit = () => {
+    if (entryKeyInput.trim().toUpperCase() !== entryKey) {
+      setEntryGateError('输入的口令不正确，请重新输入。');
+      return;
+    }
+
+    setEntryGateError('');
+    setEntryGateStep('id');
+  };
+
+  const handleIdCardSubmit = () => {
+    if (!isValidMainlandChinaIdCard(idCardInput)) {
+      setEntryGateError('请输入有效的中国大陆 18 位身份证号。');
+      return;
+    }
+
+    setEntryGateError('');
+    setEntryGateStep('done');
   };
 
   const startQuiz = useCallback(() => {
@@ -210,6 +249,79 @@ export default function App() {
           Smart Quiz Assistant &copy; 2024
         </p>
       </footer>
+
+      {state === 'home' && entryGateStep !== 'done' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
+          <Card className="w-full max-w-md border-2 border-black bg-white shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-2xl font-black tracking-tight">
+                {entryGateStep === 'key' ? '请输入口令' : '请输入身份证号'}
+              </CardTitle>
+              <CardDescription className="text-base text-gray-600">
+                {entryGateStep === 'key'
+                  ? `请在下方输入框输入该口令：${entryKey}`
+                  : '请输入中国大陆 18 位身份证号，校验通过后才能进入首页。'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {entryGateStep === 'key' ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={entryKeyInput}
+                  onChange={(event) => {
+                    setEntryKeyInput(event.target.value.toUpperCase());
+                    if (entryGateError) {
+                      setEntryGateError('');
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      handleEntryKeySubmit();
+                    }
+                  }}
+                  maxLength={6}
+                  placeholder="请输入 6 位口令"
+                  className="h-12 w-full rounded-xl border-2 border-black px-4 text-lg font-bold uppercase outline-none focus:ring-4 focus:ring-black/10"
+                />
+              ) : (
+                <input
+                  autoFocus
+                  type="text"
+                  value={idCardInput}
+                  onChange={(event) => {
+                    setIdCardInput(event.target.value.toUpperCase());
+                    if (entryGateError) {
+                      setEntryGateError('');
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      handleIdCardSubmit();
+                    }
+                  }}
+                  maxLength={18}
+                  placeholder="请输入 18 位身份证号"
+                  className="h-12 w-full rounded-xl border-2 border-black px-4 text-lg font-bold outline-none focus:ring-4 focus:ring-black/10"
+                />
+              )}
+
+              {entryGateError && (
+                <p className="rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                  {entryGateError}
+                </p>
+              )}
+
+              <Button
+                onClick={entryGateStep === 'key' ? handleEntryKeySubmit : handleIdCardSubmit}
+                className="h-12 w-full rounded-xl bg-black text-base font-black text-white hover:bg-gray-800"
+              >
+                {entryGateStep === 'key' ? '验证口令' : '验证身份证号'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

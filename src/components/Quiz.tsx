@@ -52,10 +52,10 @@ export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
   }, [questions]);
 
   return (
-    <div className="w-full max-w-6xl mx-auto h-[80vh] flex flex-col md:flex-row border-2 border-black bg-white overflow-hidden shadow-2xl">
+    <div className="w-full max-w-6xl mx-auto min-h-[70vh] md:h-[min(80vh,calc(100dvh-12rem))] flex flex-col md:flex-row border-2 border-black bg-white md:overflow-hidden shadow-2xl">
       {/* Left: Question Content */}
-      <div className="flex-1 p-6 md:p-10 flex flex-col relative">
-        <div className="flex-1">
+      <div className="flex-1 min-h-0 p-6 md:p-10 flex flex-col relative">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <div className="flex items-center gap-2 mb-6">
             <span className="text-2xl font-bold">{currentIndex + 1}、</span>
             <h2 className="text-xl font-medium leading-relaxed">{currentQuestion.title}</h2>
@@ -90,21 +90,23 @@ export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
         </div>
 
         {/* Mobile Navigation (visible only on small screens) */}
-        <div className="md:hidden flex justify-between mt-8 pt-4 border-t">
-          <Button variant="outline" onClick={goToPrev} disabled={currentIndex === 0}>
+        <div className="md:hidden sticky bottom-0 mt-6 border-t bg-white pt-4 pb-1">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="flex-1" onClick={goToPrev} disabled={currentIndex === 0}>
             上一题
-          </Button>
-          <Button variant="outline" onClick={goToNext} disabled={currentIndex === questions.length - 1}>
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={goToNext} disabled={currentIndex === questions.length - 1}>
             下一题
-          </Button>
-          <Button onClick={() => onSubmit(answers)} className="bg-black hover:bg-gray-800">
-            提交
-          </Button>
+            </Button>
+            <Button onClick={() => onSubmit(answers)} className="flex-1 bg-black hover:bg-gray-800">
+              提交
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Right: Sidebar */}
-      <div className="w-full md:w-80 border-t-2 md:border-t-0 md:border-l-2 border-black flex flex-col bg-gray-50">
+      <div className="w-full md:w-80 min-h-0 border-t-2 md:border-t-0 md:border-l-2 border-black flex flex-col bg-gray-50">
         {/* ID Photo Placeholder */}
         <div className="p-6 flex flex-col items-center border-b border-gray-200">
           <div className="w-32 h-40 border-2 border-black rounded-lg flex flex-col items-center justify-center bg-white shadow-sm">
@@ -114,7 +116,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
         </div>
 
         {/* Question Grid */}
-        <ScrollArea className="flex-1 p-4">
+        <ScrollArea className="min-h-0 flex-1 p-4">
           {Object.entries(groupedQuestions).map(([type, indices]) => (
             <div key={type} className="mb-6">
               <h3 className="text-sm font-bold mb-3 text-gray-600 uppercase tracking-wider">{type}</h3>
@@ -142,7 +144,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
         </ScrollArea>
 
         {/* Desktop Navigation Buttons */}
-        <div className="hidden md:flex flex-col p-4 gap-2 border-t border-gray-200 bg-white">
+        <div className="hidden md:flex flex-col sticky bottom-0 p-4 gap-2 border-t border-gray-200 bg-white">
           <div className="flex gap-2">
             <Button 
               variant="outline" 
