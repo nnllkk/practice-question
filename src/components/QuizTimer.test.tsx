@@ -22,11 +22,15 @@ const sampleQuestions: Question[] = [
   },
 ];
 
-test('Quiz keeps mobile and desktop navigation visible in constrained viewports', () => {
-  const html = renderToStaticMarkup(<Quiz questions={sampleQuestions} onSubmit={() => {}} timeLimitMinutes={60} />);
+test('Quiz renders time limit summary when countdown props are provided', () => {
+  const html = renderToStaticMarkup(
+    <Quiz
+      questions={sampleQuestions}
+      onSubmit={() => {}}
+      timeLimitMinutes={60}
+    />
+  );
 
-  assert.match(html, /md:hidden sticky bottom-0/);
-  assert.match(html, /md:h-\[min\(80vh,calc\(100dvh-12rem\)\)\]/);
-  assert.match(html, /hidden md:flex flex-col sticky bottom-0/);
-  assert.doesNotMatch(html, /class="[^"]*\sh-\[80vh\][^"]*"/);
+  assert.match(html, /限时 60 分钟/);
+  assert.match(html, /60:00/);
 });

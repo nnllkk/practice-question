@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 
 import { generateEntryKey, isValidMainlandChinaIdCard } from './entry-gate';
 
-test('generateEntryKey returns a 6-character uppercase alphanumeric key', () => {
+test('generateEntryKey returns a 6-digit numeric key', () => {
   const key = generateEntryKey();
 
   assert.equal(key.length, 6);
-  assert.match(key, /^[A-Z0-9]{6}$/);
+  assert.match(key, /^\d{6}$/);
 });
 
 test('isValidMainlandChinaIdCard accepts a valid 18-digit mainland ID card', () => {

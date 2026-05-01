@@ -1,4 +1,4 @@
-const ENTRY_KEY_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const ENTRY_KEY_CHARS = '0123456789';
 const MAINLAND_ID_CARD_PATTERN = /^\d{17}[\dX]$/;
 const ID_CARD_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
 const ID_CARD_CHECK_CODES = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];

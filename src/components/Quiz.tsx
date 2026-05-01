@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Send, User } from 'lucide-react';
+import { Clock3, Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,17 +13,39 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Question } from '@/src/types';
 import { cn } from '@/lib/utils';
+import { formatRemainingTime } from '@/src/lib/quiz-settings';
 
 interface QuizProps {
   questions: Question[];
   onSubmit: (answers: Record<string, string>) => void;
+  timeLimitMinutes: number;
 }
 
-export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
+export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit, timeLimitMinutes }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [remainingSeconds, setRemainingSeconds] = useState(timeLimitMinutes * 60);
 
   const currentQuestion = questions[currentIndex];
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setAnswers({});
+    setRemainingSeconds(timeLimitMinutes * 60);
+  }, [questions, timeLimitMinutes]);
+
+  useEffect(() => {
+    if (remainingSeconds <= 0) {
+      onSubmit(answers);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRemainingSeconds(previous => previous - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [answers, onSubmit, remainingSeconds]);
 
   const handleSelectOption = (option: string) => {
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: option }));
@@ -55,6 +77,16 @@ export const Quiz: React.FC<QuizProps> = ({ questions, onSubmit }) => {
     <div className="w-full max-w-6xl mx-auto min-h-[70vh] md:h-[min(80vh,calc(100dvh-12rem))] flex flex-col md:flex-row border-2 border-black bg-white md:overflow-hidden shadow-2xl">
       {/* Left: Question Content */}
       <div className="flex-1 min-h-0 p-6 md:p-10 flex flex-col relative">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-2 border-black bg-yellow-50 px-4 py-3 rounded-2xl">
+          <div>
+            <p className="text-sm font-bold text-gray-600">本轮限时 {timeLimitMinutes} 分钟</p>
+            <p className="text-xs text-gray-500">时间结束后会自动交卷，请注意作答节奏。</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-white">
+            <Clock3 className="h-4 w-4" />
+            <span className="text-lg font-black tracking-wide">{formatRemainingTime(remainingSeconds)}</span>
+          </div>
+        </div>
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <div className="flex items-center gap-2 mb-6">
             <span className="text-2xl font-bold">{currentIndex + 1}、</span>

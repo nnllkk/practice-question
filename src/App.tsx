@@ -8,14 +8,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BookOpen, Trophy, FileSpreadsheet, PlayCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { parseStoredIdCard } from '@/src/lib/auth-session';
 import { generateEntryKey, isValidMainlandChinaIdCard } from '@/src/lib/entry-gate';
+import { clampQuestionCount, DEFAULT_QUIZ_SETTINGS } from '@/src/lib/quiz-settings';
 import { FileUpload } from './components/FileUpload';
 import { Quiz } from './components/Quiz';
 import { Results } from './components/Results';
 import { Question, QuizResult, AppState } from './types';
 
 const LAST_RESULT_KEY = 'quiz_last_result';
-type EntryGateStep = 'key' | 'id' | 'done';
+const AUTHENTICATED_ID_CARD_KEY = 'quiz_authenticated_id_card';
+type EntryGateStep = 'key' | 'id';
 
 export default function App() {
   const [state, setState] = useState<AppState>('home');
@@ -28,6 +31,9 @@ export default function App() {
   const [idCardInput, setIdCardInput] = useState('');
   const [entryGateStep, setEntryGateStep] = useState<EntryGateStep>('key');
   const [entryGateError, setEntryGateError] = useState('');
+  const [authenticatedIdCard, setAuthenticatedIdCard] = useState<string | null>(null);
+  const [questionCount, setQuestionCount] = useState(DEFAULT_QUIZ_SETTINGS.questionCount);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(DEFAULT_QUIZ_SETTINGS.timeLimitMinutes);
 
   // Load last result from localStorage
   useEffect(() => {
@@ -39,26 +45,30 @@ export default function App() {
         console.error('Failed to parse last result', e);
       }
     }
+
+    setAuthenticatedIdCard(parseStoredIdCard(localStorage.getItem(AUTHENTICATED_ID_CARD_KEY)));
   }, []);
 
-  useEffect(() => {
-    if (state !== 'home') {
-      return;
-    }
-
+  const resetEntryGate = useCallback(() => {
     setEntryKey(generateEntryKey());
     setEntryKeyInput('');
     setIdCardInput('');
     setEntryGateError('');
     setEntryGateStep('key');
-  }, [state]);
+  }, []);
+
+  useEffect(() => {
+    if (state === 'home' && !authenticatedIdCard) {
+      resetEntryGate();
+    }
+  }, [authenticatedIdCard, resetEntryGate, state]);
 
   const handleDataLoaded = (questions: Question[]) => {
     setAllQuestions(questions);
   };
 
   const handleEntryKeySubmit = () => {
-    if (entryKeyInput.trim().toUpperCase() !== entryKey) {
+    if (entryKeyInput.trim() !== entryKey) {
       setEntryGateError('输入的口令不正确，请重新输入。');
       return;
     }
@@ -73,20 +83,32 @@ export default function App() {
       return;
     }
 
+    const normalizedIdCard = idCardInput.trim().toUpperCase();
     setEntryGateError('');
-    setEntryGateStep('done');
+    setAuthenticatedIdCard(normalizedIdCard);
+    localStorage.setItem(AUTHENTICATED_ID_CARD_KEY, normalizedIdCard);
+  };
+
+  const handleGoHome = () => {
+    setState('home');
+  };
+
+  const handleLogout = () => {
+    setAuthenticatedIdCard(null);
+    localStorage.removeItem(AUTHENTICATED_ID_CARD_KEY);
+    setState('home');
   };
 
   const startQuiz = useCallback(() => {
     if (allQuestions.length === 0) return;
     
-    // Randomly pick 20 questions
+    const normalizedQuestionCount = clampQuestionCount(questionCount, allQuestions.length);
     const shuffled = [...allQuestions].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, Math.min(20, allQuestions.length));
+    const selected = shuffled.slice(0, normalizedQuestionCount);
     
     setQuizQuestions(selected);
     setState('quiz');
-  }, [allQuestions]);
+  }, [allQuestions, questionCount]);
 
   const handleQuizSubmit = (answers: Record<string, string>) => {
     let score = 0;
@@ -119,17 +141,31 @@ export default function App() {
       {/* Header */}
       <header className="border-b-2 border-black bg-white sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setState('home')}>
-            <div className="bg-black p-1.5 rounded-lg">
-              <BookOpen className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={handleGoHome}>
+              <div className="bg-black p-1.5 rounded-lg">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-xl font-black tracking-tighter">智能刷题助手</h1>
             </div>
-            <h1 className="text-xl font-black tracking-tighter">智能刷题助手</h1>
+            {state !== 'home' && (
+              <Button variant="ghost" onClick={handleGoHome} className="font-bold hover:bg-gray-100">
+                返回首页
+              </Button>
+            )}
           </div>
-          {state !== 'home' && (
-            <Button variant="ghost" onClick={() => setState('home')} className="font-bold hover:bg-gray-100">
-              退出
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {authenticatedIdCard && (
+              <div className="rounded-full border-2 border-black bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700 md:px-4 md:text-sm">
+                用户：{authenticatedIdCard}
+              </div>
+            )}
+            {state === 'home' && authenticatedIdCard && (
+              <Button variant="ghost" onClick={handleLogout} className="font-bold hover:bg-gray-100">
+                退出登录
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -177,18 +213,51 @@ export default function App() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-4"
+                    className="mx-auto w-full max-w-xl flex flex-col items-center gap-4"
                   >
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border-2 border-green-600 rounded-full text-green-700 font-bold">
+                    <div className="mx-auto flex items-center justify-center gap-2 px-4 py-2 text-center bg-green-50 border-2 border-green-600 rounded-full text-green-700 font-bold">
                       <FileSpreadsheet className="w-4 h-4" />
                       已加载 {allQuestions.length} 道题目
                     </div>
+                    <Card className="mx-auto w-full border-2 border-black bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                      <CardContent className="grid gap-4 p-6 text-center md:grid-cols-2">
+                        <label className="space-y-2 text-center">
+                          <span className="block text-sm font-bold text-gray-700">抽题数量</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={allQuestions.length}
+                            value={questionCount}
+                            onChange={(event) => {
+                              const nextValue = Number(event.target.value);
+                              setQuestionCount(Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 1);
+                            }}
+                            className="mx-auto h-12 w-full rounded-xl border-2 border-black px-4 text-center text-lg font-bold outline-none focus:ring-4 focus:ring-black/10"
+                          />
+                          <p className="text-xs text-gray-500">默认 50 题，最多可抽取 {allQuestions.length} 题。</p>
+                        </label>
+                        <label className="space-y-2 text-center">
+                          <span className="block text-sm font-bold text-gray-700">答题时长（分钟）</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={timeLimitMinutes}
+                            onChange={(event) => {
+                              const nextValue = Number(event.target.value);
+                              setTimeLimitMinutes(Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 1);
+                            }}
+                            className="mx-auto h-12 w-full rounded-xl border-2 border-black px-4 text-center text-lg font-bold outline-none focus:ring-4 focus:ring-black/10"
+                          />
+                          <p className="text-xs text-gray-500">默认 30 分钟，时间结束后自动交卷。</p>
+                        </label>
+                      </CardContent>
+                    </Card>
                     <Button 
                       onClick={startQuiz}
                       className="w-full max-w-sm h-16 text-xl font-black bg-black hover:bg-gray-800 text-white rounded-2xl shadow-[0px_8px_0px_0px_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none transition-all"
                     >
                       <PlayCircle className="w-6 h-6 mr-2" />
-                      开始答题 (随机20题)
+                      开始答题（{Math.min(questionCount, allQuestions.length)}题 / {timeLimitMinutes}分钟）
                     </Button>
                   </motion.div>
                 )}
@@ -199,11 +268,18 @@ export default function App() {
                 <div className="p-4 border-2 border-black rounded-xl bg-white flex gap-3">
                   <Info className="w-5 h-5 shrink-0" />
                   <p className="text-sm text-gray-600">
-                    <span className="font-bold block text-black mb-1">随机抽题</span>
-                    系统将从您的题库中随机抽取 20 道题目，确保每次练习都有新鲜感。
+                    <span className="font-bold block text-black mb-1">自定义抽题</span>
+                    您可以自行设置本轮抽题数量，系统会按设置从题库中随机抽取题目。
                   </p>
                 </div>
                 <div className="p-4 border-2 border-black rounded-xl bg-white flex gap-3">
+                  <Info className="w-5 h-5 shrink-0" />
+                  <p className="text-sm text-gray-600">
+                    <span className="font-bold block text-black mb-1">限时练习</span>
+                    支持设置答题时长，倒计时结束后系统会自动交卷。
+                  </p>
+                </div>
+                <div className="p-4 border-2 border-black rounded-xl bg-white flex gap-3 md:col-span-2">
                   <Info className="w-5 h-5 shrink-0" />
                   <p className="text-sm text-gray-600">
                     <span className="font-bold block text-black mb-1">错题回顾</span>
@@ -222,7 +298,7 @@ export default function App() {
               exit={{ opacity: 0 }}
               className="w-full"
             >
-              <Quiz questions={quizQuestions} onSubmit={handleQuizSubmit} />
+              <Quiz questions={quizQuestions} onSubmit={handleQuizSubmit} timeLimitMinutes={timeLimitMinutes} />
             </motion.div>
           )}
 
@@ -236,7 +312,7 @@ export default function App() {
               <Results 
                 result={currentResult} 
                 onRestart={startQuiz} 
-                onGoHome={() => setState('home')} 
+                onGoHome={handleGoHome} 
               />
             </motion.div>
           )}
@@ -250,7 +326,7 @@ export default function App() {
         </p>
       </footer>
 
-      {state === 'home' && entryGateStep !== 'done' && (
+      {state === 'home' && !authenticatedIdCard && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
           <Card className="w-full max-w-md border-2 border-black bg-white shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]">
             <CardHeader className="space-y-2">
@@ -268,9 +344,11 @@ export default function App() {
                 <input
                   autoFocus
                   type="text"
+                  inputMode="numeric"
+                  pattern="\d{6}"
                   value={entryKeyInput}
                   onChange={(event) => {
-                    setEntryKeyInput(event.target.value.toUpperCase());
+                    setEntryKeyInput(event.target.value.replace(/\D/g, '').slice(0, 6));
                     if (entryGateError) {
                       setEntryGateError('');
                     }
@@ -281,8 +359,8 @@ export default function App() {
                     }
                   }}
                   maxLength={6}
-                  placeholder="请输入 6 位口令"
-                  className="h-12 w-full rounded-xl border-2 border-black px-4 text-lg font-bold uppercase outline-none focus:ring-4 focus:ring-black/10"
+                  placeholder="请输入 6 位数字口令"
+                  className="h-12 w-full rounded-xl border-2 border-black px-4 text-lg font-bold tracking-[0.3em] outline-none focus:ring-4 focus:ring-black/10"
                 />
               ) : (
                 <input
